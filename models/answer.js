@@ -4,7 +4,10 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Answer extends Model {
     static associate(models) {
-      // define association here
+      Answer.belongsTo(models.ScoreTbl, {
+        foreignKey: "score_id",
+        as: "score",
+      });
     }
   }
 

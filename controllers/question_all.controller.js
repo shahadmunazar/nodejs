@@ -2,6 +2,7 @@ const { where } = require("sequelize");
 const Validator = require("fastest-validator");
 
 const { Question, ZoneType, TblBadges, ScoreTbl, Answer, Sequelize } = require("../models"); // Ensure this line imports correctly
+const { use } = require("../routes/question");
 
 async function getQuestionsWithScores(req, res) {
   try {
@@ -280,7 +281,90 @@ async function SubmitQuestion(req, res) {
   }
 }
 
+async function getUserScoreSwt(req, res) {
+  try {
+    const v = new Validator();
+
+    // Validation schema
+    const schema = {
+      questionID: { type: "number", number: true, positive: true, required: true },
+      taskid: { type: "number", number: true, positive: true, required: true },
+    };
+
+    // Extract parameters
+    const questionID = parseInt(req.query.questionID, 10);
+    const taskid = parseInt(req.query.taskid, 10);
+    const { userId } = req.userData; // Ensure userId is available in req.userData
+
+    // Validate parameters
+    const validationResponse = v.validate({ questionID, taskid }, schema);
+    if (validationResponse !== true) {
+      return res.status(403).json({
+        status: 403,
+        error: validationResponse,
+      });
+    }
+    const userScore = await ScoreTbl.findAll({
+      attributes: [
+        "id",
+        "question_id",
+        "zone_id",
+        "task_id",
+        "student_id",
+        "fluency_score",
+        "pronunciation_score",
+        "content_score",
+        "form_score",
+        "grammar_score",
+        "vocabulary_score",
+        "spelling_score",
+        "linguistic_score",
+        "development_score",
+        "score",
+        "content_score_para",
+        "form_score_para",
+        "grammar_score_para",
+        "spelling_score_para",
+        "vocabulary_score_para",
+        "linguistic_score_para",
+        "development_score_para",
+        "total_score",
+        "reason_for_zero",
+        "time_taken",
+        "api_transcript",
+        "response_json",
+        "storage",
+        "status",
+        "email_Conventation",
+        "deleted_at",
+      ],
+      where: {
+        question_id: questionID,
+        student_id: userId,
+        task_id: taskid,
+      },
+    });
+    if (!userScore) {
+      return res.status(404).json({
+        status: 404,
+        message: "No score found for the given criteria.",
+      });
+    }
+    return res.status(200).json({
+      status: 200,
+      data: userScore,
+      message: "Score retrieved successfully.",
+    });
+  } catch (error) {
+    console.error("Error getting user score:", error);
+    return res.status(500).json({
+      status: 500,
+      message: "An error occurred while processing your request.",
+    });
+  }
+}
 module.exports = {
+  getUserScoreSwt,
   getQuestionsWithScores,
   SubmitQuestion,
 };
