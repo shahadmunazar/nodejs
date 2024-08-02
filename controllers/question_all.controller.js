@@ -1,7 +1,7 @@
 const { where } = require("sequelize");
 const Validator = require("fastest-validator");
 
-const { Question, ZoneType, TblBadges, ScoreTbl, Sequelize } = require("../models");
+const { Question, ZoneType, TblBadges, ScoreTbl, Answer, Sequelize } = require("../models"); // Ensure this line imports correctly
 
 async function getQuestionsWithScores(req, res) {
   try {
@@ -225,15 +225,6 @@ async function getQuestionsWithScores(req, res) {
 
 async function SubmitQuestion(req, res) {
   try {
-    const post = {
-      questionID: req.body.questionID,
-      ansData: req.body.ansData,
-      taskName: req.body.taskName,
-      time_taken: req.body.time_taken,
-      zone_name: req.body.zone_name, // Fixed to use zone_name from req.body
-    };
-
-    // Define schema using fastest-validator
     const schema = {
       questionID: { type: "number", integer: true, positive: true },
       ansData: { type: "string", min: 1 },
@@ -242,8 +233,11 @@ async function SubmitQuestion(req, res) {
       zone_name: { type: "number", integer: true, positive: true },
     };
 
+    const { userId } = req.userData;
+    const { questionID, taskName, time_taken, zone_name, ansData } = req.body;
+
     const v = new Validator();
-    const validationResponse = v.validate(post, schema);
+    const validationResponse = v.validate(req.body, schema);
 
     if (validationResponse !== true) {
       return res.status(400).json({
@@ -252,12 +246,31 @@ async function SubmitQuestion(req, res) {
       });
     }
 
-    // Create the record in the database
-    const result = await models.ScoreTbl.create(post);
+    // Create the ScoreTbl entry
+    const scoreResult = await ScoreTbl.create({
+      question_id: questionID,
+      student_id: userId,
+      task_id: taskName,
+      time_taken,
+      zone_id: zone_name,
+    });
+
+    // Use the newly created score_id
+    const score_id = scoreResult.id;
+    console.log(score_id);
+
+    // Create the Answer entry
+    const answerResult = await Answer.create({
+      question_id: questionID,
+      student_id: userId,
+      task_name: taskName,
+      text_answer: ansData,
+      score_id: score_id,
+    });
 
     return res.status(200).json({
       message: "Question Answer Submitted Successfully",
-      post: result,
+      post: answerResult,
     });
   } catch (error) {
     console.error("Error submitting question:", error);
