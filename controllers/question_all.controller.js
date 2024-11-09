@@ -1,8 +1,11 @@
 const { where } = require("sequelize");
 const Validator = require("fastest-validator");
+const { validationResult } = require("express-validator");
 
 const { Question, ZoneType, TblBadges, ScoreTbl, Answer, Sequelize } = require("../models"); // Ensure this line imports correctly
 const { use } = require("../routes/question");
+const multer = require("multer");
+const path = require("path");
 
 async function getQuestionsWithScores(req, res) {
   try {
@@ -363,8 +366,47 @@ async function getUserScoreSwt(req, res) {
     });
   }
 }
+
+async function getStudentdiscussion(req, res) {
+  console.log("check for routes new function");
+}
+
+async function SubmitAudio(req, res) {
+  // Log incoming request to help with debugging
+  console.log("Request body:", req.body);
+  console.log("Uploaded file:", req.file);
+
+  // Validate the incoming request fields
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { questionID, taskName, time_taken, zone_name } = req.body; // Retrieve the form fields
+    const audioFile = req.file; // Retrieve the uploaded file
+
+    // Ensure the audio file is present
+    if (!audioFile) {
+      return res.status(400).json({ message: "Audio file is required." });
+    }
+
+    // You can now process these values, like saving to the database, etc.
+
+    return res.status(200).json({
+      message: "Audio submitted successfully!",
+      file: audioFile.filename, // Return the filename of the uploaded file
+      data: { questionID, taskName, time_taken, zone_name },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+}
+
 module.exports = {
   getUserScoreSwt,
   getQuestionsWithScores,
   SubmitQuestion,
+  getStudentdiscussion,
+  SubmitAudio,
 };

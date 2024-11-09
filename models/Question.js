@@ -21,8 +21,20 @@ module.exports = (sequelize, DataTypes) => {
         sourceKey: "id",
         as: "badges",
       });
+      Question.hasMany(models.MultipleChoiceOptionsAnswer, {
+        foreignKey: "question_id",
+        sourceKey: "id",
+        as: "get_option",
+      });
+      // reorderParagraphs
+      Question.hasMany(models.ReorderParagraph, {
+        foreignKey: "question_id",
+        sourceKey: "id",
+        as: "reorderParagraphs",
+      });
     }
   }
+
   Question.init(
     {
       id: {
@@ -35,6 +47,10 @@ module.exports = (sequelize, DataTypes) => {
       task_name: DataTypes.STRING,
       practice_id: DataTypes.INTEGER,
       weekly_id: DataTypes.INTEGER,
+      monthly_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true, // Set to false if you want to make this field required
+      },
       mocktest_id: DataTypes.INTEGER,
       grammar_based: {
         type: DataTypes.INTEGER.UNSIGNED.ZEROFILL,
@@ -71,10 +87,9 @@ module.exports = (sequelize, DataTypes) => {
     {
       sequelize,
       modelName: "Question",
-      tableName: "question", // Make sure this matches your actual table name
+      tableName: "question", // Ensure this matches your actual table name
       timestamps: false, // Set to true if `created_at` and `updated_at` are handled by Sequelize
       underscored: true, // Set to true if your column names are underscored
-      // Other model options if needed
     }
   );
 
