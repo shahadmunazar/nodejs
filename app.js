@@ -2,6 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors"); // Import CORS
 
+const path = require("path");
+
 const app = express();
 
 // Import routes
@@ -18,16 +20,16 @@ const corsOptions = {
   credentials: true, // Allow credentials (cookies, etc.)
 };
 
-// Apply CORS middleware globally
-app.use(cors(corsOptions)); // This should be applied before any route definitions
-
-// Body parser middleware for handling JSON requests
-app.use(bodyParser.json()); // Fixed typo here
+app.use(cors(corsOptions));
+app.use(bodyParser.json()); 
 
 // Mount routes
 app.use("/posts", postsRoutes); // Mount the postsRoutes middleware at /posts
 app.use("/blogs", BlogsRoutes);
 app.use("/user", UserRoutes);
 app.use("/get-question", QuestionRoutes);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 module.exports = app;

@@ -1,11 +1,13 @@
 const { where } = require("sequelize");
 const Validator = require("fastest-validator");
 const { validationResult } = require("express-validator");
-const v = new Validator(); // Initialize the validator instance
+const v = new Validator();
 const { Question, ZoneType, TblBadges, ScoreTbl, Answer, MultipleChoiceOptionsAnswer, ReorderParagraph, TblDiscussion, Sequelize } = require("../../models"); // Ensure this line imports correctly
+const { Op } = require("sequelize");
+
 const { use } = require("../../routes/question");
 const multer = require("multer");
-const moment = require("moment"); // Import moment library
+const moment = require("moment");
 
 const path = require("path");
 const { type } = require("os");
@@ -264,7 +266,9 @@ async function GetReorderQuestion(req, res) {
         allquestionsapp: formattedQuestionsWithBadges,
         countquestion: totalCount,
         correct_answers: para,
-        correct_option: latestQuestion ? latestQuestion.correct_option : [],
+        correct_option: para,
+        paragraphs: para,
+        // correct_option: latestQuestion ? latestQuestion.correct_option : [],
         total_count_questions: totalCount,
         all_questions: {
           current_page: parseInt(page),
@@ -293,7 +297,7 @@ async function GetReorderQuestion(req, res) {
   }
 }
 
-async function SubmitMATQScore(req, res) {
+async function SubmitReorderAnswer(req, res) {
   try {
     const schema = {
       ansData: {
@@ -317,10 +321,10 @@ async function SubmitMATQScore(req, res) {
 
     let countCorrectAnswers = 0;
     let countIncorrectAnswers = 0;
-    const totalScore = await MultipleChoiceOptionsAnswer.count({
-      where: { question_id: questionID, correct_answers: true },
-    });
 
+    const totalScore = await ReorderParagraph.count({
+      where: { question_id: questionID, correct_order: { [Op.not]: null } },
+    });
     const scoreStore = await ScoreTbl.create({
       question_id: questionID,
       task_id: taskName,
@@ -331,26 +335,34 @@ async function SubmitMATQScore(req, res) {
       created_at: new Date(),
     });
 
+    // Process each answer in ansData
     await Promise.all(
-      ansData.map(async optionId => {
-        const answerOption = await MultipleChoiceOptionsAnswer.findOne({
-          where: { id: optionId },
-          attributes: ["id", "correct_answers"],
+      ansData.map(async paragraphId => {
+        const paragraph = await ReorderParagraph.findOne({
+          where: { id: paragraphId },
+          attributes: ["id", "correct_order"],
         });
 
-        let isAnswerCorrect = 0;
-        if (answerOption && answerOption.correct_answers === true) {
-          isAnswerCorrect = 1;
-          countCorrectAnswers++;
-        } else {
-          countIncorrectAnswers++;
+        if (!paragraph) {
+          return;
         }
 
+        let isAnswerCorrect = 0;
+        if (paragraph.correct_order !== null) {
+          if (paragraph.correct_order === countCorrectAnswers + 1) {
+            isAnswerCorrect = 1;
+            countCorrectAnswers++;
+          } else {
+            countIncorrectAnswers++;
+          }
+        }
+
+        // Store the answer record
         await Answer.create({
           question_id: questionID,
           task_name: taskName,
           student_id: studentID,
-          paragraph_id: optionId,
+          paragraph_id: paragraphId,
           is_answer_correct: isAnswerCorrect,
           score_id: scoreStore.id,
         });
@@ -358,9 +370,12 @@ async function SubmitMATQScore(req, res) {
     );
 
     const finalScore = Math.max(countCorrectAnswers - countIncorrectAnswers, 0);
+
     scoreStore.score = finalScore;
     scoreStore.total_score = totalScore;
     await scoreStore.save();
+
+    const formattedDate = moment(scoreStore.created_at).format("DD-MM-YYYY");
 
     return res.status(200).json({
       status: "success",
@@ -369,12 +384,14 @@ async function SubmitMATQScore(req, res) {
         score_id: scoreStore.id,
         user_score: finalScore,
         total_score: totalScore,
+        user_name: req.userData.name, // Assuming user data is in req.userData
+        task_date: formattedDate,
         correct_answers: countCorrectAnswers,
         incorrect_answers: countIncorrectAnswers,
       },
     });
   } catch (error) {
-    console.error("Error in SubmitMATQScore:", error);
+    console.error("Error in SubmitReorderAnswer:", error);
     return res.status(500).json({
       status: "error",
       message: "An error occurred while submitting the answer.",
@@ -456,6 +473,6 @@ async function GetMTMAStuentScore(req, res) {
 
 module.exports = {
   GetReorderQuestion,
-  SubmitMATQScore,
+  SubmitReorderAnswer,
   GetMTMAStuentScore,
 };
