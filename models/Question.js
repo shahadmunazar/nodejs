@@ -26,6 +26,13 @@ module.exports = (sequelize, DataTypes) => {
         sourceKey: "id",
         as: "get_option",
       });
+
+      // FillBlankParagraph relation
+      Question.hasMany(models.FillBlankParagraph, {
+        foreignKey: "reading_fill_blank_id",
+        sourceKey: "id",
+        as: "fillBlankParagraphs", 
+      });
       // reorderParagraphs
       Question.hasMany(models.ReorderParagraph, {
         foreignKey: "question_id",

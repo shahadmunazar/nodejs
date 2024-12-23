@@ -4,6 +4,8 @@ const cors = require("cors"); // Import CORS
 
 const path = require("path");
 
+
+
 const app = express();
 
 // Import routes
@@ -28,8 +30,16 @@ app.use("/posts", postsRoutes); // Mount the postsRoutes middleware at /posts
 app.use("/blogs", BlogsRoutes);
 app.use("/user", UserRoutes);
 app.use("/get-question", QuestionRoutes);
+const multer = require("multer");
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(express.static("public"));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+
+
 
 
 module.exports = app;

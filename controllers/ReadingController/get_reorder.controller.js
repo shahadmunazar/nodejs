@@ -400,7 +400,7 @@ async function SubmitReorderAnswer(req, res) {
   }
 }
 
-async function GetMTMAStuentScore(req, res) {
+async function GetReorderScore(req, res) {
   try {
     const { taskName, questionID } = req.query;
     const { userId: studentID } = req.userData;
@@ -474,5 +474,5 @@ async function GetMTMAStuentScore(req, res) {
 module.exports = {
   GetReorderQuestion,
   SubmitReorderAnswer,
-  GetMTMAStuentScore,
+  GetReorderScore,
 };

@@ -123,7 +123,7 @@ async function GetReadAloud(req, res) {
     let nextQuestionId = null;
     if (question_id) {
       latestQuestion = await Question.findOne({
-        where: { id: question_id, ...whereClause }, // Merging conditions
+        where: { id: question_id, ...whereClause },
         include: [
           {
             model: ZoneType,

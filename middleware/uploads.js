@@ -1,33 +1,30 @@
 // middleware/uploads.js
-const multer = require("multer");
+const multer = require('multer');
+const path = require('path');
 
-// Storage configuration for uploaded files
+// Define storage settings
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/practice/"); // Define where the file should be stored
+    cb(null, 'public/uploads'); // Save files to 'public/uploads' folder
   },
   filename: (req, file, cb) => {
-    const extension = file.mimetype === "audio/mpeg" || file.mimetype === "audio/mp3" ? "mp3" : "wav";
-    const filename = file.originalname.split(".")[0] + Date.now() + "." + extension;
-    cb(null, filename); // Pass the filename to the callback
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 
-// File type validation for audio files
+// File filter for audio files
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = ["audio/mpeg", "audio/wav", "audio/mp3"];
-  if (allowedMimeTypes.includes(file.mimetype)) {
-    cb(null, true); // Accept the file
+  if (file.mimetype.startsWith('audio/')) {
+    cb(null, true);
   } else {
-    cb(new Error("Invalid file type. Only MP3, WAV, and MPEG files are allowed!"), false); // Reject the file
+    cb(new Error('Only audio files are allowed!'), false);
   }
 };
 
-// Multer setup with storage and validation
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Set file size limit (10 MB in this case)
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
 module.exports = upload;

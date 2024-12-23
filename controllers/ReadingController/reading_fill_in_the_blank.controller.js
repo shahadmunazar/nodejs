@@ -2,11 +2,11 @@ const { where } = require("sequelize");
 const Validator = require("fastest-validator");
 const { validationResult } = require("express-validator");
 const v = new Validator();
-const { Question, ZoneType, TblBadges, ScoreTbl, Answer, MultipleChoiceOptionsAnswer, ReorderParagraph, TblDiscussion, Sequelize } = require("../../models"); // Ensure this line imports correctly
+const { Question, ZoneType, TblBadges, ScoreTbl, Answer, MultipleChoiceOptionsAnswer, FillBlankParagraph, TblDiscussion, Sequelize } = require("../../models"); // Ensure this line imports correctly
 const { Op } = require("sequelize");
 
 const { use } = require("../../routes/question");
-// const multer = require("multer");
+const multer = require("multer");
 const moment = require("moment");
 
 const path = require("path");
@@ -40,6 +40,11 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
           as: "get_task",
           attributes: ["zone_id", "name", "instructions", "time_allowed", "tasks_position"],
           required: true,
+        },
+        {
+          model: FillBlankParagraph,
+          as: "fillBlankParagraphs", 
+          attributes: ["id", "reading_fill_blank_id", "paragraph", "correct_answer", "answer_option_dropdown"],
         },
       ],
       order: [["id", "DESC"]],
@@ -142,9 +147,9 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
             required: true,
           },
           {
-            model: ReorderParagraph,
-            as: "reorderParagraphs",
-            attributes: ["id", "question_id", "paragraph", "serial_no", "correct_order"],
+            model: FillBlankParagraph,
+            as: "fillBlankParagraphs",
+            attributes: ["id", "reading_fill_blank_id", "paragraph", "correct_answer", "answer_option_dropdown"],
           },
         ],
       });
@@ -152,19 +157,17 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
       if (latestQuestion) {
         const Question_id = latestQuestion.id;
         const sort = "asc";
-        const paragraphs = await ReorderParagraph.findAll({
-          attributes: ["id", "paragraph", "serial_no", "correct_order", "question_id"],
-          where: { question_id: Question_id },
-          order: sort === "asc" ? [["correct_order", "ASC"]] : [],
+        const paragraphs = await FillBlankParagraph.findAll({
+          attributes: ["id", "reading_fill_blank_id", "paragraph", "correct_answer", "answer_option_dropdown"],
+          where: { reading_fill_blank_id: Question_id },
         });
         para = paragraphs.map(paragraph => ({
           paragraph_id: paragraph.id,
           sentence: paragraph.paragraph,
-          serial_no: paragraph.serial_no,
-          correct_order: paragraph.correct_order,
+          correct_order: paragraph.correct_answer,
         }));
-        const options = latestQuestion.reorderParagraphs.map(rp => rp.get());
-        const correctOptions = options.filter(option => option.correct_order === true);
+        const options = latestQuestion.fillBlankParagraphs.map(rp => rp.get());
+        const correctOptions = options.filter(option => option.correct_answer === true);
         const questionBadges = badgesMap[latestQuestion.id] || [];
         const attemptCount = attemptsMap[latestQuestion.id] || 0;
         latestQuestion = {
@@ -190,9 +193,9 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
             required: true,
           },
           {
-            model: ReorderParagraph,
-            as: "reorderParagraphs",
-            attributes: ["id", "question_id", "paragraph", "serial_no", "correct_order"],
+            model: FillBlankParagraph,
+            as: "fillBlankParagraphs",
+            attributes: ["id", "reading_fill_blank_id", "paragraph", "correct_answer", "answer_option_dropdown"],
           },
         ],
       });
@@ -201,20 +204,19 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
         const Question_id = latestQuestion.id;
         const sort = "asc";
 
-        const paragraphs = await ReorderParagraph.findAll({
-          attributes: ["id", "paragraph", "serial_no", "correct_order", "question_id"],
-          where: { question_id: Question_id },
-          order: sort === "asc" ? [["correct_order", "ASC"]] : [],
+        const paragraphs = await FillBlankParagraph.findAll({
+          attributes: ["id", "reading_fill_blank_id", "paragraph", "correct_answer", "answer_option_dropdown"],
+          where: { reading_fill_blank_id: Question_id },
+          // order: sort === "asc" ? [["correct_answer", "ASC"]] : [],
         });
 
         para = paragraphs.map(paragraph => ({
           paragraph_id: paragraph.id,
           sentence: paragraph.paragraph,
-          serial_no: paragraph.serial_no,
-          correct_order: paragraph.correct_order,
+          correct_order: paragraph.correct_answer,
         }));
 
-        const options = latestQuestion.reorderParagraphs.map(rp => rp.get());
+        const options = latestQuestion.fillBlankParagraphs.map(rp => rp.get());
         const correctOptions = options.filter(option => option.correct_order === true);
 
         const questionBadges = badgesMap[latestQuestion.id] || [];
@@ -261,7 +263,6 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
         correct_answers: para,
         correct_option: para,
         paragraphs: para,
-        // correct_option: latestQuestion ? latestQuestion.correct_option : [],
         total_count_questions: totalCount,
         all_questions: {
           current_page: parseInt(page),
@@ -285,23 +286,44 @@ async function GetReadingFillIntheBlankQuestion(req, res) {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error("Error in GetMSQAnswer:", error);
+    console.error("Error in GetReadingFillIntheBlankQuestion:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
-async function SubmitReorderAnswer(req, res) {
+
+async function SubmitReadFillBlankAnswer(req, res) {
   try {
+    // Validation schema
     const schema = {
+      questionID: {
+        type: "number",
+        integer: true,
+        positive: true,
+        messages: { required: "Question ID is required." }
+      },
+      taskName: {
+        type: "string",
+        empty: false,
+        messages: { required: "Task name is required." }
+      },
       ansData: {
         type: "array",
-        items: { type: "number" },
         empty: false,
-        messages: { required: "Answer data is required.", array: "Answer data must be an array of numbers." },
+        messages: {
+          required: "Answer data is required.",
+          array: "Answer data must be an array of objects."
+        },
+        items: {
+          type: "object",
+          properties: {
+            paragraph_id: { type: "number", required: true },
+            answer: { type: "string", required: true },
+            sentence_id: { type: "number", optional: true },
+          },
+        },
       },
-      questionID: { type: "number", integer: true, positive: true, messages: { required: "Question ID is required." } },
-      taskName: { type: "number", empty: false, messages: { required: "Task name is required." } },
-      time_taken: { type: "string", empty: true, messages: { required: "Time taken is optional." } },
+      time_taken: { type: "string", empty: false, messages: { required: "Time taken is optional." } },
     };
 
     const validationResponse = v.validate(req.body, schema);
@@ -309,31 +331,41 @@ async function SubmitReorderAnswer(req, res) {
       return res.status(400).json({ errors: validationResponse });
     }
 
+    // Extracting validated data from the request
     const { ansData, questionID, taskName, time_taken } = req.body;
-    const { userId: studentID } = req.userData;
+    const { userId: studentID, name: userName } = req.userData;
 
     let countCorrectAnswers = 0;
-    let countIncorrectAnswers = 0;
 
-    const totalScore = await ReorderParagraph.count({
-      where: { question_id: questionID, correct_order: { [Op.not]: null } },
+    // Fetch the count of non-empty correct answers for this question
+    const countNonEmptyCorrectAnswers = await FillBlankParagraph.count({
+      where: {
+        reading_fill_blank_id: questionID,
+        correct_answer: {
+          [Sequelize.Op.ne]: '',  // Ensures correct_answer is not empty
+        }
+      }
     });
+
+    let totalScore = countNonEmptyCorrectAnswers; // Set totalScore to the count of non-empty correct answers
+
+    // Create a score record
     const scoreStore = await ScoreTbl.create({
       question_id: questionID,
       task_id: taskName,
       student_id: studentID,
       time_taken: time_taken,
-      zone_id: 3, // adjust this to the appropriate zone_id if necessary
+      zone_id: 3, // Adjust as per your logic
       status: 1,
       created_at: new Date(),
     });
 
     // Process each answer in ansData
     await Promise.all(
-      ansData.map(async paragraphId => {
-        const paragraph = await ReorderParagraph.findOne({
-          where: { id: paragraphId },
-          attributes: ["id", "correct_order"],
+      ansData.map(async (ans) => {
+        const paragraph = await FillBlankParagraph.findOne({
+          where: { id: ans.paragraph_id, reading_fill_blank_id: questionID },
+          attributes: ["id", "correct_answer"],
         });
 
         if (!paragraph) {
@@ -341,33 +373,29 @@ async function SubmitReorderAnswer(req, res) {
         }
 
         let isAnswerCorrect = 0;
-        if (paragraph.correct_order !== null) {
-          if (paragraph.correct_order === countCorrectAnswers + 1) {
-            isAnswerCorrect = 1;
-            countCorrectAnswers++;
-          } else {
-            countIncorrectAnswers++;
-          }
+        if (paragraph.correct_answer && ans.paragraph_id === ans.sentence_id) {
+          isAnswerCorrect = 1;
+          countCorrectAnswers++;
         }
-
-        // Store the answer record
         await Answer.create({
           question_id: questionID,
           task_name: taskName,
           student_id: studentID,
-          paragraph_id: paragraphId,
+          paragraph_id: ans.paragraph_id,
+          answer_blank: ans.answer,
+          user_answer:ans.answer,
           is_answer_correct: isAnswerCorrect,
           score_id: scoreStore.id,
         });
       })
     );
 
-    const finalScore = Math.max(countCorrectAnswers - countIncorrectAnswers, 0);
-
-    scoreStore.score = finalScore;
+    // Update the score with correct answers and total score
+    scoreStore.score = countCorrectAnswers;
     scoreStore.total_score = totalScore;
     await scoreStore.save();
 
+    // Fetch latest score for the response
     const formattedDate = moment(scoreStore.created_at).format("DD-MM-YYYY");
 
     return res.status(200).json({
@@ -375,16 +403,16 @@ async function SubmitReorderAnswer(req, res) {
       message: "Answer submitted successfully.",
       data: {
         score_id: scoreStore.id,
-        user_score: finalScore,
+        user_score: countCorrectAnswers,
         total_score: totalScore,
-        user_name: req.userData.name, // Assuming user data is in req.userData
+        user_name: userName,
         task_date: formattedDate,
         correct_answers: countCorrectAnswers,
-        incorrect_answers: countIncorrectAnswers,
+        incorrect_answers: totalScore - countCorrectAnswers,
       },
     });
   } catch (error) {
-    console.error("Error in SubmitReorderAnswer:", error);
+    console.error("Error in SubmitReadFillBlankAnswer:", error);
     return res.status(500).json({
       status: "error",
       message: "An error occurred while submitting the answer.",
@@ -393,7 +421,9 @@ async function SubmitReorderAnswer(req, res) {
   }
 }
 
-async function GetMTMAStuentScore(req, res) {
+
+
+async function GetReadingFillIntheBlank(req, res) {
   try {
     const { taskName, questionID } = req.query;
     const { userId: studentID } = req.userData;
@@ -412,15 +442,14 @@ async function GetMTMAStuentScore(req, res) {
       ],
       order: [["id", "DESC"]],
     });
-
     if (scoreData.length > 0) {
       const scoreResponses = await Promise.all(
         scoreData.map(async score => {
           const userAnswers = await Promise.all(
             score.answers.map(async answer => {
-              const answerDetails = await MultipleChoiceOptionsAnswer.findOne({
+              const answerDetails = await FillBlankParagraph.findOne({
                 where: { id: answer.paragraph_id },
-                attributes: ["id", "alfaSerial"],
+                attributes: ["id"],
               });
               return answerDetails;
             })
@@ -466,6 +495,6 @@ async function GetMTMAStuentScore(req, res) {
 
 module.exports = {
 GetReadingFillIntheBlankQuestion,
-  SubmitReorderAnswer,
-  GetMTMAStuentScore,
+SubmitReadFillBlankAnswer,
+GetReadingFillIntheBlank,
 };
