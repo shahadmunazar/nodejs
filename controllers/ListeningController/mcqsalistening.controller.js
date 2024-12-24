@@ -119,6 +119,7 @@ async function ListeningMCQ(req, res) {
         get_task: question.get_task ? question.get_task.get() : null,
         badges: questionBadges,
         attempt_count: attemptCount,
+        
       };
     });
 
@@ -157,6 +158,8 @@ async function ListeningMCQ(req, res) {
           ...latestQuestion.get(),
           get_task: latestQuestion.get_task ? latestQuestion.get_task.get() : null,
           badges: questionBadges,
+          audio_path: `${req.protocol}://${req.get("host")}/uploads/questions/audio_files/${latestQuestion.audio}`,
+
           attempt_count: attemptCount,
           get_option: options, // All options
           correct_option: correctOptions, // Only correct options
@@ -200,6 +203,8 @@ async function ListeningMCQ(req, res) {
           get_task: latestQuestion.get_task ? latestQuestion.get_task.get() : null,
           badges: questionBadges,
           attempt_count: attemptCount,
+          audio_path: `${req.protocol}://${req.get("host")}/uploads/questions/audio_files/${latestQuestion.audio}`,
+
           get_option: options, // All options
           correct_option: correctOptions, // Only correct options
         };

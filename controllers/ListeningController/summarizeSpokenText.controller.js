@@ -1,8 +1,9 @@
 const { where } = require("sequelize");
 const Validator = require("fastest-validator");
 const { validationResult } = require("express-validator");
+const v = new Validator(); // Initialize the validator instance
 
-const { Question, ZoneType, TblBadges, ScoreTbl, Answer, Sequelize } = require("../../models"); // Ensure this line imports correctly
+const { Question, ZoneType, TblBadges, ScoreTbl, Answer, TblDiscussion, Sequelize } = require("../../models"); // Ensure this line imports correctly
 const { use } = require("../../routes/question");
 const multer = require("multer");
 const path = require("path");
@@ -227,7 +228,255 @@ async function SummarizeSpokenText(req, res) {
         res.status(500).json({ error: "An error occurred while fetching questions." });
       }
 }
+async function SubmitAnswerSSt(req,res){
+  try {
+      const schema = {
+        ansData: { type: "string", empty: false, messages: { required: "Answer data is required." } },
+        questionID: { type: "number", integer: true, positive: true, messages: { required: "Question ID is required." } },
+        taskName: { type: "number", empty: false, messages: { required: "Task name is required." } },
+        time_taken: { type: "string", empty: true, messages: { required: "Time taken is Optioanl." } },
+      };
+      console.log(schema);
+      const validationResponse = v.validate(req.body, schema);
+      if (validationResponse !== true) {
+        return res.status(400).json({ errors: validationResponse });
+      }
+      const { ansData, questionID, taskName, time_taken } = req.body;
+      const { userId } = req.userData;
+  
+      const AddData = {
+        ansData,
+        questionID,
+        taskName,
+        time_taken,
+      };
+      const scoreStore = await ScoreTbl.create({
+        question_id: questionID,
+        task_id: taskName,
+        student_id: userId,
+        score: 0,
+        total_score: 0,
+        zone_id: 2,
+        time_taken: time_taken || null,
+        status: 1,
+      });
+  
+      const storeAnswers = await Answer.create({
+        question_id: questionID,
+        task_name: taskName,
+        student_id: userId,
+        text_answer: ansData,
+        created_at: new Date(),
+        score_id: scoreStore.id,
+      });
+      res.status(201).json({
+        message: "Answer submitted successfully",
+        data: {
+          score: scoreStore,
+          answer: storeAnswers,
+        },
+      });
+    } catch (error) {
+      console.error("Error submitting answer:", error);
+      res.status(500).json({ error: "An error occurred while submitting the answer." });
+    }
+}
+
+async function GetSStScore(req,res){
+   try {
+      const v = new Validator();
+      const schema = {
+        questionID: { type: "number", number: true, positive: true, required: true },
+        taskid: { type: "number", number: true, positive: true, required: true },
+      };
+      const questionID = parseInt(req.query.questionID, 10);
+      const taskid = parseInt(req.query.taskid, 10);
+      const { userId } = req.userData;
+      const validationResponse = v.validate({ questionID, taskid }, schema);
+      if (validationResponse !== true) {
+        return res.status(403).json({
+          status: 403,
+          error: validationResponse,
+        });
+      }
+      const userScore = await ScoreTbl.findAll({
+        attributes: [
+          "id",
+          "question_id",
+          "zone_id",
+          "task_id",
+          "student_id",
+          "fluency_score",
+          "pronunciation_score",
+          "content_score",
+          "form_score",
+          "grammar_score",
+          "vocabulary_score",
+          "spelling_score",
+          "linguistic_score",
+          "development_score",
+          "score",
+          "content_score_para",
+          "form_score_para",
+          "grammar_score_para",
+          "spelling_score_para",
+          "vocabulary_score_para",
+          "linguistic_score_para",
+          "development_score_para",
+          "total_score",
+          "reason_for_zero",
+          "time_taken",
+          "api_transcript",
+          "response_json",
+          "storage",
+          "status",
+          "deleted_at",
+        ],
+        where: {
+          question_id: questionID,
+          student_id: userId,
+          task_id: taskid,
+        },
+      });
+      if (!userScore) {
+        return res.status(404).json({
+          status: 404,
+          message: "No score found for the given criteria.",
+        });
+      }
+      return res.status(200).json({
+        status: 200,
+        data: userScore,
+        message: "Score retrieved successfully.",
+      });
+    } catch (error) {
+      console.error("Error getting user score:", error);
+      return res.status(500).json({
+        status: 500,
+        message: "An error occurred while processing your request.",
+      });
+    }
+}
+
+async function SubmitListenignBadges(req ,res) {
+  try {
+      const schema = {
+        task_id: { type: "number", integer: true, positive: true, messages: { required: "Task ID is required." } },
+        badges: { type: "number", integer: true, positive: true, messages: { required: "Badges is required." } },
+        questionID: { type: "number", integer: true, positive: true, messages: { required: "Question ID is required." } },
+      };
+      const validationResponse = v.validate(req.body, schema);
+      if (validationResponse !== true) {
+        return res.status(400).json({ errors: validationResponse });
+      }
+      const { task_id, badges, questionID } = req.body;
+      const { userId: student_id } = req.userData;
+      const existingBadge = await TblBadges.findOne({
+        where: {
+          task_id: task_id,
+          student_id: student_id,
+          question_id: questionID,
+        },
+      });
+      if (existingBadge) {
+        await TblBadges.update(
+          { badges: badges },
+          {
+            where: {
+              task_id: task_id,
+              student_id: student_id,
+              question_id: questionID,
+            },
+          }
+        );
+        res.status(200).json({
+          status: 200,
+          data: { badges_id: badges },
+          message: "Updated into Badges",
+        });
+      } else {
+        const newBadge = await TblBadges.create({
+          student_id: student_id,
+          question_id: questionID,
+          task_id: task_id,
+          badges: badges,
+        });
+        res.status(200).json({
+          status: 200,
+          data: { badges_id: badges },
+          message: "Added into Badges",
+        });
+      }
+    } catch (error) {
+      console.error("Error handling badges:", error);
+      res.status(500).json({ error: "An error occurred while processing badges." });
+    }
+}
+
+async function SubmitListenignDiscussion(req,res) {
+  try {
+      const schema = {
+        task_id: { type: "number", integer: true, positive: true, messages: { required: "Task ID is required." } },
+        questionID: { type: "number", integer: true, positive: true, messages: { required: "Question ID is required." } },
+        comments: { type: "string", string: true, positive: true, messages: { required: "Comments are required." } },
+      };
+  
+      const validationResponse = v.validate(req.body, schema);
+      if (validationResponse !== true) {
+        return res.status(400).json({ errors: validationResponse });
+      }
+  
+      const { task_id, questionID, comments } = req.body;
+      const { userId: student_id } = req.userData;
+      const task_date = moment().format("DD-MM-YYYY HH:mm:ss");
+      const newDiscussion = await TblDiscussion.create({
+        student_id: student_id,
+        question_id: questionID,
+        task_id: task_id,
+        message: comments,
+        task_date: task_date,
+      });
+  
+      res.status(201).json({ message: "Discussion submitted successfully", data: newDiscussion });
+    } catch (error) {
+      console.error("Error submitting discussion:", error);
+      res.status(500).json({ error: "An error occurred while submitting the discussion." });
+    }
+}
+
+async function GetListeningDiscussion(req,res) {
+  try {
+    const { questionID, taskid } = req.query;
+    const { userId: student_id } = req.userData;
+    const discussions = await TblDiscussion.findAll({
+      where: {
+        student_id: student_id,
+        task_id: taskid,
+        question_id: questionID,
+      },
+      raw: true,
+    });
+
+    if (discussions.length === 0) {
+      return res.status(404).json({ message: "No discussions found." });
+    }
+
+    res.status(200).json({
+      message: "Discussions retrieved successfully",
+      data: discussions,
+    });
+  } catch (error) {
+    console.error("Error retrieving discussions:", error);
+    res.status(500).json({ error: "An error occurred while retrieving the discussions." });
+  }
+}
 
 module.exports = {
     SummarizeSpokenText,
+    SubmitAnswerSSt,
+    GetSStScore,
+    SubmitListenignBadges,
+    SubmitListenignDiscussion,
+    GetListeningDiscussion
+
 };

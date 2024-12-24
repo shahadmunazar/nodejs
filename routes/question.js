@@ -33,7 +33,7 @@ const { GetAnswerShortQuestions } = require("../controllers/Speaking/AnswerShort
 const {GetReadingFillIntheBlankQuestion,SubmitReadFillBlankAnswer,GetReadingFillIntheBlank} = require("../controllers/ReadingController/reading_fill_in_the_blank.controller");
 const {ReadWriteFillinTheBlank,SubmitReadWrireBlank,CheckReadWriteStudentScore} = require("../controllers/ReadingController/read_write_fill_in_the_blank.controller");
 const {ListeningMCQ} = require('../controllers/ListeningController/mcqsalistening.controller');
-const {SummarizeSpokenText} = require("../controllers/ListeningController/summarizeSpokenText.controller");
+const {SummarizeSpokenText,SubmitAnswerSSt,GetSStScore,SubmitListenignBadges,SubmitListenignDiscussion,GetListeningDiscussion} = require("../controllers/ListeningController/summarizeSpokenText.controller");
 
 const {SummarizeSpokenTextPtecore} = require("../controllers/ListeningController/summarizeSpokenTextPteCore.controller");
 
@@ -97,9 +97,13 @@ router.get('/read-write-get-student-score', ...withAuthAndRole(CheckReadWriteStu
 
 //Listening Routes Start
 router.get('/summarize-spoken-text', ...withAuthAndRole(SummarizeSpokenText));
-
+router.post('/submit-sst-answer', ...withAuthAndRole(SubmitAnswerSSt));
+router.get('/summarize-sst-score', ...withAuthAndRole(GetSStScore));
+router.post('/submit-listenign-badges', ...withAuthAndRole(SubmitListenignBadges));
+router.post('/submit-litening-discussion', ...withAuthAndRole(SubmitListenignDiscussion));
+router.get('/listening-get-discussion', ...withAuthAndRole(GetListeningDiscussion));
 router.get('/summarize-spoken-text-pte-score', ...withAuthAndRole(SummarizeSpokenTextPtecore));
-router.get('listening-multiple-question', ...withAuthAndRole(ListeningMCQ));
+router.get('/listening-multiple-question', ...withAuthAndRole(ListeningMCQ));
 
 
 router.get("/question", ...withAuthAndRole(getQuestionsWithScores));

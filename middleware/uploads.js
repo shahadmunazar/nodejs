@@ -1,30 +1,25 @@
-// middleware/uploads.js
 const multer = require('multer');
-const path = require('path');
 
-// Define storage settings
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/uploads'); // Save files to 'public/uploads' folder
+    cb(null, 'public/uploads/');
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    cb(null, Date.now() + '-' + file.originalname);
   },
 });
 
-// File filter for audio files
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('audio/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only audio files are allowed!'), false);
-  }
-};
-
 const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB file limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('audio/')) {
+      return cb(new Error('Only audio files are allowed!'), false);
+    }
+    cb(null, true);
+  },
 });
 
 module.exports = upload;
